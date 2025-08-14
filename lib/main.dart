@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'flashcard.dart';
 
 void main() {
   runApp(const MyApp());
@@ -44,126 +45,21 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class Flashcard {
-  final String word;
-  final String hiragana;
-  final String meaning;
-  const Flashcard({
-    required this.word,
-    required this.hiragana,
-    required this.meaning,
-  });
-}
-
-class FlashcardWidget extends StatelessWidget {
-  final Flashcard flashcard;
-  final bool reveal;
-  final void Function()? onReveal;
-  const FlashcardWidget({
-    super.key,
-    this.onReveal,
-    required this.reveal,
-    required this.flashcard,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsetsGeometry.all(10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          spacing: 10,
-          children: [
-            if (reveal)
-              Text(
-                flashcard.hiragana,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            Text(reveal ? flashcard.meaning : flashcard.word),
-            TextButton(
-              onPressed: onReveal,
-              child: Text(!reveal ? "Reveal" : "Next"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class AddFlashcardWidget extends StatefulWidget {
-  const AddFlashcardWidget({super.key});
-
-  @override
-  State<AddFlashcardWidget> createState() => _AddFlashcardWidgetState();
-}
-
-class _AddFlashcardWidgetState extends State<AddFlashcardWidget> {
-  final GlobalKey<FormState> _formKey = GlobalKey();
-
-  String? Function(String?) _emptyFieldValidator(String name) {
-    return (String? value) {
-      if (value == null || value.isEmpty) {
-        return "Please enter $name";
-      }
-      return null;
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsetsGeometry.all(8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Add New Flashcard"),
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  GridView.count(
-                    crossAxisCount: 2,
-                    children: [
-                      const Text("Word"),
-                      const Text("Hiragana"),
-                      TextFormField(
-                        decoration: const InputDecoration(hintText: "言葉"),
-                        validator: _emptyFieldValidator("Word"),
-                      ),
-                      TextFormField(
-                        decoration: const InputDecoration(hintText: "ことば"),
-                        validator: _emptyFieldValidator("Hiragana"),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _MyHomePageState extends State<MyHomePage> {
   final List<Flashcard> _flashcards = [
-    Flashcard(word: "テスト", hiragana: "てすと", meaning: "Test"),
+    Flashcard(question: "テスト", answer: "てすと - Test"),
   ];
   int _currentFlashcard = 0;
   bool _reveal = false;
-  bool _flashcardForm = false;
 
-  void _addFlashcard(Flashcard flashcard) {
-    setState(() => _flashcards.add(flashcard));
-  }
-
-  void _addFlashcardButton() async {
-    await showDialog(context: context, builder: (_) => Card());
+  void _addFlashcardButton(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (_) => FlashcardDialogWidget(
+        onAddFlashcard: (flashcard) =>
+            setState(() => _flashcards.add(flashcard)),
+      ),
+    );
   }
 
   void _resetFlashcardCounter() {
@@ -209,8 +105,8 @@ class _MyHomePageState extends State<MyHomePage> {
             : const Text("No flashcards to display..."),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _addFlashcardButton,
-        child: Icon(!_flashcardForm ? Icons.add : Icons.close),
+        onPressed: () => _addFlashcardButton(context),
+        child: Icon(Icons.add),
       ),
     );
   }
