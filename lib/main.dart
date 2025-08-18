@@ -1,5 +1,6 @@
+import 'package:flashycard/flashcard.dart';
+import 'package:flashycard/validator.dart';
 import 'package:flutter/material.dart';
-import 'flashcard.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,26 +15,17 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent),
       ),
       home: const MyHomePage(title: 'Flashy Card'),
     );
   }
+}
+
+class FlashcardGroup {
+  final String name;
+  final String? description;
+  const FlashcardGroup({required this.name, this.description});
 }
 
 class MyHomePage extends StatefulWidget {
@@ -46,68 +38,124 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final List<Flashcard> _flashcards = [
-    Flashcard(question: "テスト", answer: "てすと - Test"),
-  ];
-  int _currentFlashcard = 0;
-  bool _reveal = false;
+  final List<FlashcardGroup> _groups = [];
 
-  void _addFlashcardButton(BuildContext context) async {
-    await showDialog(
-      context: context,
-      builder: (_) => FlashcardDialogWidget(
-        onAddFlashcard: (flashcard) =>
-            setState(() => _flashcards.add(flashcard)),
-      ),
+  void _onAddGroup(String name, String? description) {
+    setState(
+      () => _groups.add(FlashcardGroup(name: name, description: description)),
     );
   }
 
-  void _resetFlashcardCounter() {
-    setState(() => _currentFlashcard = 0);
+  Future<void> _showAddDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (_) => CreateGroupDialog(onGroupAdd: _onAddGroup),
+    );
   }
 
-  void _revealFlashcard() {
-    setState(() {
-      if (_reveal) {
-        _currentFlashcard++;
-      }
-      _reveal = !_reveal;
-    });
+  void _selectGroup(BuildContext context, FlashcardGroup group) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => FlashcardPage(title: group.name)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme.colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
-        child: _flashcards.isNotEmpty
-            ? _currentFlashcard < _flashcards.length
-                  ? FlashcardWidget(
-                      reveal: _reveal,
-                      flashcard: _flashcards[_currentFlashcard],
-                      onReveal: _revealFlashcard,
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text("No more flashcards left to display..."),
-                        TextButton(
-                          onPressed: _resetFlashcardCounter,
-                          child: const Text("Restart"),
-                        ),
-                      ],
-                    )
-            : const Text("No flashcards to display..."),
+      body: ListView(
+        children: _groups
+            .map(
+              (group) => Card(
+                child: Padding(
+                  padding: EdgeInsetsGeometry.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(group.name, style: theme.textTheme.titleLarge),
+                          Text(
+                            group.description ?? "",
+                            style: theme.textTheme.bodyMedium,
+                            textAlign: TextAlign.justify,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () => _selectGroup(context, group),
+                        icon: const Icon(Icons.arrow_right),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _addFlashcardButton(context),
+        onPressed: () => _showAddDialog(context),
         child: Icon(Icons.add),
       ),
+    );
+  }
+}
+
+class CreateGroupDialog extends StatefulWidget {
+  final void Function(String, String?)? onGroupAdd;
+  const CreateGroupDialog({super.key, this.onGroupAdd});
+
+  @override
+  State<StatefulWidget> createState() => CreateGroupDialogState();
+}
+
+class CreateGroupDialogState extends State<CreateGroupDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey();
+  String? _name, _description;
+
+  void _addGroup(BuildContext context) {
+    var state = _formKey.currentState!;
+    state.save();
+    if (state.validate()) {
+      widget.onGroupAdd?.call(_name!, _description);
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Create new flashcard group"),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            TextFormField(
+              decoration: const InputDecoration(labelText: "Group Name"),
+              validator: emptyFieldValidator("group name"),
+              onSaved: (value) => _name = value,
+            ),
+            TextFormField(
+              decoration: const InputDecoration(labelText: "Description"),
+              onSaved: (value) => _description = value,
+              keyboardType: TextInputType.multiline,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        ElevatedButton(
+          onPressed: () => _addGroup(context),
+          child: const Text("Add"),
+        ),
+      ],
     );
   }
 }
