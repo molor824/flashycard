@@ -130,11 +130,6 @@ class FlashcardPageState extends State<FlashcardPage> {
     });
   }
 
-  void _goBack(BuildContext context) {
-    var navigator = Navigator.of(context);
-    navigator.pop();
-  }
-
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
