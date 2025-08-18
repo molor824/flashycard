@@ -70,32 +70,9 @@ class _MyHomePageState extends State<MyHomePage> {
       body: ListView(
         children: _groups
             .map(
-              (group) => Card(
-                child: Padding(
-                  padding: EdgeInsetsGeometry.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(group.name, style: theme.textTheme.titleLarge),
-                          Text(
-                            group.description ?? "",
-                            style: theme.textTheme.bodyMedium,
-                            textAlign: TextAlign.justify,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        onPressed: () => _selectGroup(context, group),
-                        icon: const Icon(Icons.arrow_right),
-                      ),
-                    ],
-                  ),
-                ),
+              (group) => FlashcardGroupCard(
+                group: group,
+                onPressed: (context) => _selectGroup(context, group),
               ),
             )
             .toList(),
@@ -103,6 +80,49 @@ class _MyHomePageState extends State<MyHomePage> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context),
         child: Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class FlashcardGroupCard extends StatelessWidget {
+  final FlashcardGroup group;
+  final void Function(BuildContext) onPressed;
+  const FlashcardGroupCard({
+    super.key,
+    required this.group,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    var theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: EdgeInsetsGeometry.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(group.name, style: theme.textTheme.titleLarge),
+                Text(
+                  group.description ?? "",
+                  style: theme.textTheme.bodyMedium,
+                  textAlign: TextAlign.justify,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ],
+            ),
+            IconButton(
+              onPressed: () => onPressed(context),
+              icon: const Icon(Icons.arrow_right),
+            ),
+          ],
+        ),
       ),
     );
   }
