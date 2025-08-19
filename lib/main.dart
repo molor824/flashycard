@@ -99,29 +99,29 @@ class FlashcardGroupCard extends StatelessWidget {
     var theme = Theme.of(context);
 
     return Card(
-      child: Padding(
-        padding: EdgeInsetsGeometry.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(group.name, style: theme.textTheme.titleLarge),
-                Text(
-                  group.description ?? "",
-                  style: theme.textTheme.bodyMedium,
-                  textAlign: TextAlign.justify,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-              ],
-            ),
-            IconButton(
-              onPressed: () => onPressed(context),
-              icon: const Icon(Icons.arrow_right),
-            ),
-          ],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => onPressed(context),
+        child: Padding(
+          padding: EdgeInsetsGeometry.all(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(group.name, style: theme.textTheme.titleLarge),
+                  Text(
+                    group.description ?? "",
+                    style: theme.textTheme.bodyMedium,
+                    textAlign: TextAlign.justify,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

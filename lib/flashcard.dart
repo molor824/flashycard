@@ -1,22 +1,41 @@
+import 'package:flashycard/rating.dart';
 import 'package:flashycard/validator.dart';
 import 'package:flutter/material.dart';
 
-class Flashcard {
+class Qna {
   final String question;
   final String answer;
-  const Flashcard({required this.question, required this.answer});
+  const Qna({required this.question, required this.answer});
 }
 
-class FlashcardWidget extends StatelessWidget {
-  final Flashcard flashcard;
-  final bool reveal;
-  final void Function()? onReveal;
-  const FlashcardWidget({
-    super.key,
-    this.onReveal,
-    required this.reveal,
-    required this.flashcard,
-  });
+class Flashcard extends StatefulWidget {
+  final Qna qna;
+  final void Function(int)? onRatingSubmit;
+  const Flashcard({super.key, required this.qna, this.onRatingSubmit});
+
+  @override
+  State<StatefulWidget> createState() {
+    return FlashcardState();
+  }
+}
+
+class FlashcardState extends State<Flashcard> {
+  bool _reveal = false;
+  int? _rating;
+
+  void _onRatingChange(int rating) {
+    setState(() => _rating = rating);
+  }
+
+  void _onRevealPress() {
+    if (_reveal) {
+      widget.onRatingSubmit?.call(_rating!);
+    }
+    setState(() {
+      _reveal = !_reveal;
+      _rating = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,12 +46,15 @@ class FlashcardWidget extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           spacing: 10,
           children: [
-            Text(flashcard.question),
-            if (reveal) Text(flashcard.answer),
-            TextButton(
-              onPressed: onReveal,
-              child: Text(!reveal ? "Reveal" : "Next"),
-            ),
+            Text(widget.qna.question),
+            if (_reveal) Text(widget.qna.answer),
+            if (_reveal)
+              Rating(rating: _rating ?? 0, onRatingChange: _onRatingChange),
+            if (!_reveal || _rating != null)
+              TextButton(
+                onPressed: _onRevealPress,
+                child: Text(!_reveal ? "Reveal" : "Next"),
+              ),
           ],
         ),
       ),
@@ -41,7 +63,7 @@ class FlashcardWidget extends StatelessWidget {
 }
 
 class FlashcardDialogWidget extends StatefulWidget {
-  final void Function(Flashcard flashcard)? onAddFlashcard;
+  final void Function(Qna flashcard)? onAddFlashcard;
   const FlashcardDialogWidget({super.key, this.onAddFlashcard});
 
   @override
@@ -56,9 +78,7 @@ class FlashcardDialogState extends State<FlashcardDialogWidget> {
     var state = _formKey.currentState!;
     state.save();
     if (state.validate()) {
-      widget.onAddFlashcard?.call(
-        Flashcard(question: _question!, answer: _answer!),
-      );
+      widget.onAddFlashcard?.call(Qna(question: _question!, answer: _answer!));
       Navigator.pop(context);
     }
   }
@@ -76,6 +96,7 @@ class FlashcardDialogState extends State<FlashcardDialogWidget> {
       content: Form(
         key: _formKey,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
               decoration: const InputDecoration(labelText: "Question"),
@@ -103,9 +124,9 @@ class FlashcardPage extends StatefulWidget {
 }
 
 class FlashcardPageState extends State<FlashcardPage> {
-  final List<Flashcard> _flashcards = [];
+  final List<Qna> _flashcards = [];
+  final Map<int, int> _ratings = {};
   int _currentFlashcard = 0;
-  bool _reveal = false;
 
   void _addFlashcardButton(BuildContext context) async {
     await showDialog(
@@ -118,15 +139,15 @@ class FlashcardPageState extends State<FlashcardPage> {
   }
 
   void _resetFlashcardCounter() {
-    setState(() => _currentFlashcard = 0);
+    setState(() {
+      _currentFlashcard = 0;
+    });
   }
 
-  void _revealFlashcard() {
+  void _onRatingSubmit(int rating) {
     setState(() {
-      if (_reveal) {
-        _currentFlashcard++;
-      }
-      _reveal = !_reveal;
+      _ratings[_currentFlashcard] = rating;
+      _currentFlashcard++;
     });
   }
 
@@ -141,10 +162,9 @@ class FlashcardPageState extends State<FlashcardPage> {
       body: Center(
         child: _flashcards.isNotEmpty
             ? _currentFlashcard < _flashcards.length
-                  ? FlashcardWidget(
-                      reveal: _reveal,
-                      flashcard: _flashcards[_currentFlashcard],
-                      onReveal: _revealFlashcard,
+                  ? Flashcard(
+                      qna: _flashcards[_currentFlashcard],
+                      onRatingSubmit: _onRatingSubmit,
                     )
                   : Column(
                       mainAxisSize: MainAxisSize.min,
