@@ -1,35 +1,30 @@
-import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:path/path.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-final List<FlashcardGroupData> _sampleGroupData = [
-  FlashcardGroupData(
-    id: 1,
-    title: "Japanese",
-    description: "Japanese vocab list",
-  ),
-  FlashcardGroupData(id: 2, title: "Driving school"),
-];
-final List<FlashcardData> _sampleFlashcardData = [
-  FlashcardData(id: 1, groupId: 1, question: "日本", answer: "にほん - Japan"),
-  FlashcardData(
-    id: 2,
-    groupId: 1,
-    question: "フラッシュカード",
-    answer: "ふらっしゅかーど - Flashcard",
-  ),
-  FlashcardData(
-    id: 3,
-    groupId: 2,
-    question: "Equal road intersection rule name",
-    answer: "Right-hand rule",
-    rating: 2,
-  ),
-  FlashcardData(
-    id: 4,
-    groupId: 2,
-    question: "Speed limit for regular roads for regular cars",
-    answer: "60km/h",
-  ),
-];
+const String dbName = 'flashycard_database.db';
+const String rowid = 'id';
+late Future<Database> _db;
+
+Future<void> dbSetup() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
+
+  if (kDebugMode) {
+    await deleteDatabase(dbName);
+  }
+  _db = openDatabase(
+    join(await getDatabasesPath(), dbName),
+    onCreate: (db, version) async {
+      await FlashcardData.createTable(db);
+      await FlashcardGroupData.createTable(db);
+    },
+    version: 1,
+  );
+}
 
 class FlashcardInput {
   final int groupId;
@@ -39,51 +34,101 @@ class FlashcardInput {
     required this.question,
     required this.answer,
   });
+
+  Map<String, Object?> toMap() => {
+    flashcardGroupIdName: groupId,
+    flashcardAnswerName: answer,
+    flashcardQuestionName: question,
+  };
 }
+
+const String flashcardTableName = 'flashcard';
+const String flashcardGroupIdName = 'groupId';
+const String flashcardAnswerName = 'answer';
+const String flashcardQuestionName = 'question';
+const String flashcardRatingName = 'rating';
 
 class FlashcardData {
   final int id;
   final int groupId;
   final String question, answer;
-  final int rating;
-  const FlashcardData({
-    required this.id,
+  final int? rating;
+  FlashcardData({
     required this.groupId,
     required this.question,
     required this.answer,
-    this.rating = 0,
+    required this.id,
+    this.rating,
   });
 
-  static List<FlashcardData> selectGroupWithRatingSort(int groupId) {
-    List<FlashcardData> flashcards = _sampleFlashcardData
-        .where((e) => e.groupId == groupId)
-        .toList();
-    flashcards.sort((a, b) => a.rating.compareTo(b.rating));
-    return flashcards;
+  FlashcardData.fromMap(Map<String, Object?> map)
+    : id = map[rowid] as int,
+      groupId = map[flashcardGroupIdName] as int,
+      answer = map[flashcardAnswerName] as String,
+      question = map[flashcardQuestionName] as String,
+      rating = map[flashcardRatingName] as int?;
+
+  static Future<void> createTable(Database db) {
+    return db.execute('''CREATE TABLE $flashcardTableName(
+      $rowid INTEGER PRIMARY KEY,
+      $flashcardGroupIdName INTEGER,
+      $flashcardAnswerName TEXT,
+      $flashcardQuestionName TEXT,
+      $flashcardRatingName INTEGER
+    )''');
   }
 
-  static void updateRating(int id, int rating) {
-    var index = _sampleFlashcardData.indexWhere((e) => e.id == id);
-    var data = _sampleFlashcardData[index];
-    _sampleFlashcardData[index] = FlashcardData(
-      id: data.id,
-      groupId: data.groupId,
-      question: data.question,
-      answer: data.answer,
-      rating: rating,
+  static Future<List<FlashcardData>> selectGroupWithRatingSort(
+    int groupId,
+  ) async {
+    var db = await _db;
+    var flashcards = await db.query(
+      flashcardTableName,
+      where: '$flashcardGroupIdName = $groupId',
+      orderBy: '$flashcardRatingName ASC',
+    );
+    return [
+      for (final {
+            rowid: id as int,
+            flashcardGroupIdName: groupId as int,
+            flashcardQuestionName: question as String,
+            flashcardAnswerName: answer as String,
+            flashcardRatingName: rating as int?,
+          }
+          in flashcards)
+        FlashcardData(
+          id: id,
+          groupId: groupId,
+          question: question,
+          answer: answer,
+          rating: rating,
+        ),
+    ];
+  }
+
+  static Future<void> updateRating(int id, int rating) async {
+    var db = await _db;
+    await db.update(
+      flashcardTableName,
+      {flashcardRatingName: rating},
+      where: '$rowid = $id',
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  static FlashcardData insert(FlashcardInput input) {
-    var currentCounter = _sampleFlashcardData.fold(0, (n, e) => max(n, e.id));
-    var data = FlashcardData(
-      id: currentCounter + 1,
+  static Future<FlashcardData> insert(FlashcardInput input) async {
+    var db = await _db;
+    var id = await db.insert(
+      flashcardTableName,
+      input.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return FlashcardData(
       groupId: input.groupId,
       question: input.question,
       answer: input.answer,
+      id: id,
     );
-    _sampleFlashcardData.add(data);
-    return data;
   }
 }
 
@@ -91,30 +136,56 @@ class FlashcardGroupInput {
   final String title;
   final String? description;
   const FlashcardGroupInput({this.description, required this.title});
+
+  Map<String, Object?> toMap() => {
+    groupTitleName: title,
+    groupDescriptionName: description,
+  };
 }
+
+const groupTableName = 'flashcardGroup';
+const groupTitleName = 'title';
+const groupDescriptionName = 'description';
 
 class FlashcardGroupData {
   final int id;
   final String title;
   final String? description;
-  const FlashcardGroupData({
-    this.description,
-    required this.title,
-    required this.id,
-  });
+  FlashcardGroupData({this.description, required this.title, required this.id});
 
-  static List<FlashcardGroupData> selectAll() {
-    return _sampleGroupData;
+  static Future<void> createTable(Database db) {
+    return db.execute('''CREATE TABLE $groupTableName(
+      $rowid INTEGER PRIMARY KEY,
+      $groupTitleName TEXT,
+      $groupDescriptionName TEXT
+    )''');
   }
 
-  static FlashcardGroupData insert(FlashcardGroupInput input) {
-    var currentCounter = _sampleGroupData.fold(0, (n, e) => max(n, e.id));
-    var data = FlashcardGroupData(
+  static Future<List<FlashcardGroupData>> selectAll() async {
+    var db = await _db;
+    var queries = await db.query(groupTableName);
+    return [
+      for (final {
+            rowid: id as int,
+            groupTitleName: title as String,
+            groupDescriptionName: description as String?,
+          }
+          in queries)
+        FlashcardGroupData(id: id, title: title, description: description),
+    ];
+  }
+
+  static Future<FlashcardGroupData> insert(FlashcardGroupInput input) async {
+    var db = await _db;
+    var id = await db.insert(
+      groupTableName,
+      input.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return FlashcardGroupData(
       title: input.title,
-      id: currentCounter + 1,
+      id: id,
       description: input.description,
     );
-    _sampleGroupData.add(data);
-    return data;
   }
 }

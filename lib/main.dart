@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flashycard/db_api.dart';
 import 'package:flashycard/flashcard.dart';
 import 'package:flashycard/validator.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+Future<void> main() async {
+  await dbSetup();
   runApp(const MyApp());
 }
 
@@ -33,22 +36,25 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late List<FlashcardGroupData> _groups;
+  List<FlashcardGroupData>? _groups;
+
+  Future<void> _loadGroups() async {
+    setState(() => _groups = null);
+    var value = await FlashcardGroupData.selectAll();
+    setState(() => _groups = value);
+  }
 
   @override
   void initState() {
-    _groups = FlashcardGroupData.selectAll();
+    _loadGroups();
     super.initState();
   }
 
-  void _onAddGroup(String title, String? description) {
-    setState(
-      () => _groups.add(
-        FlashcardGroupData.insert(
-          FlashcardGroupInput(title: title, description: description),
-        ),
-      ),
+  Future<void> _onAddGroup(String title, String? description) async {
+    var data = await FlashcardGroupData.insert(
+      FlashcardGroupInput(title: title, description: description),
     );
+    setState(() => _groups?.add(data));
   }
 
   Future<void> _showAddDialog(BuildContext context) async {
@@ -73,14 +79,16 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: ListView(
-        children: _groups
-            .map(
-              (group) => FlashcardGroupCard(
-                group: group,
-                onPressed: (context) => _selectGroup(context, group),
-              ),
-            )
-            .toList(),
+        children: _groups != null
+            ? _groups!
+                  .map(
+                    (group) => FlashcardGroupCard(
+                      group: group,
+                      onPressed: (context) => _selectGroup(context, group),
+                    ),
+                  )
+                  .toList()
+            : const [CircularProgressIndicator()],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context),
@@ -134,7 +142,7 @@ class FlashcardGroupCard extends StatelessWidget {
 }
 
 class CreateGroupDialog extends StatefulWidget {
-  final void Function(String, String?)? onGroupAdd;
+  final FutureOr<void> Function(String, String?)? onGroupAdd;
   const CreateGroupDialog({super.key, this.onGroupAdd});
 
   @override
@@ -144,18 +152,23 @@ class CreateGroupDialog extends StatefulWidget {
 class CreateGroupDialogState extends State<CreateGroupDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey();
   String? _name, _description;
+  bool? _loading;
 
-  void _addGroup(BuildContext context) {
+  Future<void> _addGroup() async {
     var state = _formKey.currentState!;
     state.save();
     if (state.validate()) {
-      widget.onGroupAdd?.call(_name!, _description);
-      Navigator.of(context).pop();
+      setState(() => _loading = true);
+      await widget.onGroupAdd?.call(_name!, _description);
+      setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading == false) {
+      Navigator.of(context).pop();
+    }
     return AlertDialog(
       title: const Text("Create new flashcard group"),
       content: Form(
@@ -177,8 +190,10 @@ class CreateGroupDialogState extends State<CreateGroupDialog> {
       ),
       actions: [
         ElevatedButton(
-          onPressed: () => _addGroup(context),
-          child: const Text("Add"),
+          onPressed: _addGroup,
+          child: _loading == null
+              ? const Text("Add")
+              : const CircularProgressIndicator(),
         ),
       ],
     );

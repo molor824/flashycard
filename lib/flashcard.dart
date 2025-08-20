@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flashycard/db_api.dart';
 import 'package:flashycard/rating.dart';
 import 'package:flashycard/validator.dart';
@@ -11,7 +13,7 @@ class Qna {
 
 class Flashcard extends StatefulWidget {
   final Qna qna;
-  final void Function(int)? onRatingSubmit;
+  final FutureOr<void> Function(int)? onRatingSubmit;
   const Flashcard({super.key, required this.qna, this.onRatingSubmit});
 
   @override
@@ -23,14 +25,17 @@ class Flashcard extends StatefulWidget {
 class FlashcardState extends State<Flashcard> {
   bool _reveal = false;
   int? _rating;
+  bool _loading = false;
 
   void _onRatingChange(int rating) {
     setState(() => _rating = rating);
   }
 
-  void _onRevealPress() {
+  Future<void> _onRevealPress() async {
     if (_reveal) {
-      widget.onRatingSubmit?.call(_rating!);
+      setState(() => _loading = true);
+      await widget.onRatingSubmit?.call(_rating!);
+      setState(() => _loading = false);
     }
     setState(() {
       _reveal = !_reveal;
@@ -54,7 +59,9 @@ class FlashcardState extends State<Flashcard> {
             if (!_reveal || _rating != null)
               TextButton(
                 onPressed: _onRevealPress,
-                child: Text(!_reveal ? "Reveal" : "Next"),
+                child: !_loading
+                    ? Text(!_reveal ? "Reveal" : "Next")
+                    : const CircularProgressIndicator(),
               ),
           ],
         ),
@@ -64,7 +71,7 @@ class FlashcardState extends State<Flashcard> {
 }
 
 class FlashcardDialogWidget extends StatefulWidget {
-  final void Function(Qna flashcard)? onAddFlashcard;
+  final FutureOr<void> Function(Qna flashcard)? onAddFlashcard;
   const FlashcardDialogWidget({super.key, this.onAddFlashcard});
 
   @override
@@ -74,24 +81,33 @@ class FlashcardDialogWidget extends StatefulWidget {
 class FlashcardDialogState extends State<FlashcardDialogWidget> {
   final GlobalKey<FormState> _formKey = GlobalKey();
   String? _answer, _question;
+  bool? _loading;
 
-  void _addPressed(BuildContext context) {
+  Future<void> _addPressed() async {
     var state = _formKey.currentState!;
     state.save();
     if (state.validate()) {
-      widget.onAddFlashcard?.call(Qna(question: _question!, answer: _answer!));
-      Navigator.pop(context);
+      setState(() => _loading = true);
+      await widget.onAddFlashcard?.call(
+        Qna(question: _question!, answer: _answer!),
+      );
+      setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading == false) {
+      Navigator.of(context).pop();
+    }
     return AlertDialog(
       title: Text("Add flashcard"),
       actions: [
         ElevatedButton(
-          onPressed: () => _addPressed(context),
-          child: Text("Add"),
+          onPressed: _addPressed,
+          child: _loading == null
+              ? const Text("Add")
+              : const CircularProgressIndicator(),
         ),
       ],
       content: Form(
@@ -125,51 +141,49 @@ class FlashcardPage extends StatefulWidget {
 }
 
 class FlashcardPageState extends State<FlashcardPage> {
-  late List<FlashcardData> _flashcards;
+  List<FlashcardData>? _flashcards;
   int _flashcardIndex = 0;
 
-  FlashcardData get _currentFlashcard => _flashcards[_flashcardIndex];
+  FlashcardData? get _currentFlashcard => _flashcards?[_flashcardIndex];
+
+  Future<void> _loadFlashcards() async {
+    setState(() {
+      _flashcards = null;
+      _flashcardIndex = 0;
+    });
+    var data = await FlashcardData.selectGroupWithRatingSort(widget.group.id);
+    setState(() => _flashcards = data);
+  }
 
   @override
   void initState() {
-    _flashcards = FlashcardData.selectGroupWithRatingSort(widget.group.id);
+    _loadFlashcards();
     super.initState();
   }
 
-  void _onAddFlashcard(Qna qna) {
-    setState(
-      () => _flashcards.insert(
-        0,
-        FlashcardData.insert(
-          FlashcardInput(
-            groupId: widget.group.id,
-            question: qna.question,
-            answer: qna.answer,
-          ),
-        ),
+  Future<void> _onAddFlashcard(Qna qna) async {
+    var data = await FlashcardData.insert(
+      FlashcardInput(
+        groupId: widget.group.id,
+        question: qna.question,
+        answer: qna.answer,
       ),
     );
+    setState(() => _flashcards?.insert(0, data));
   }
 
-  void _addFlashcardButton(BuildContext context) async {
+  Future<void> _addFlashcardButton(BuildContext context) async {
     await showDialog(
       context: context,
       builder: (_) => FlashcardDialogWidget(onAddFlashcard: _onAddFlashcard),
     );
   }
 
-  void _resetFlashcardCounter() {
-    setState(() {
-      _flashcardIndex = 0;
-      _flashcards = FlashcardData.selectGroupWithRatingSort(widget.group.id);
-    });
-  }
-
-  void _onRatingSubmit(int rating) {
-    setState(() {
-      FlashcardData.updateRating(_currentFlashcard.id, rating);
-      _flashcardIndex++;
-    });
+  Future<void> _onRatingSubmit(int rating) async {
+    if (_currentFlashcard != null) {
+      await FlashcardData.updateRating(_currentFlashcard!.id, rating);
+    }
+    setState(() => _flashcardIndex++);
   }
 
   @override
@@ -182,26 +196,30 @@ class FlashcardPageState extends State<FlashcardPage> {
         title: Text(widget.group.title),
       ),
       body: Center(
-        child: _flashcards.isNotEmpty
-            ? _flashcardIndex < _flashcards.length
-                  ? Flashcard(
-                      qna: Qna(
-                        answer: _currentFlashcard.answer,
-                        question: _currentFlashcard.question,
-                      ),
-                      onRatingSubmit: _onRatingSubmit,
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text("No more flashcards left to display..."),
-                        TextButton(
-                          onPressed: _resetFlashcardCounter,
-                          child: const Text("Restart"),
-                        ),
-                      ],
-                    )
-            : const Text("No flashcards to display..."),
+        child: _flashcards != null
+            ? _flashcards!.isNotEmpty
+                  ? _flashcardIndex < _flashcards!.length
+                        ? Flashcard(
+                            qna: Qna(
+                              answer: _currentFlashcard!.answer,
+                              question: _currentFlashcard!.question,
+                            ),
+                            onRatingSubmit: _onRatingSubmit,
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                "No more flashcards left to display...",
+                              ),
+                              TextButton(
+                                onPressed: _loadFlashcards,
+                                child: const Text("Restart"),
+                              ),
+                            ],
+                          )
+                  : const Text("No flashcards to display...")
+            : const CircularProgressIndicator(),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addFlashcardButton(context),
