@@ -1,3 +1,4 @@
+import 'package:flashycard/db_api.dart';
 import 'package:flashycard/rating.dart';
 import 'package:flashycard/validator.dart';
 import 'package:flutter/material.dart';
@@ -116,54 +117,78 @@ class FlashcardDialogState extends State<FlashcardDialogWidget> {
 }
 
 class FlashcardPage extends StatefulWidget {
-  final String title;
-  const FlashcardPage({super.key, required this.title});
+  final FlashcardGroupData group;
+  const FlashcardPage({super.key, required this.group});
 
   @override
   State<StatefulWidget> createState() => FlashcardPageState();
 }
 
 class FlashcardPageState extends State<FlashcardPage> {
-  final List<Qna> _flashcards = [];
-  final Map<int, int> _ratings = {};
-  int _currentFlashcard = 0;
+  late List<FlashcardData> _flashcards;
+  int _flashcardIndex = 0;
+
+  FlashcardData get _currentFlashcard => _flashcards[_flashcardIndex];
+
+  @override
+  void activate() {
+    _flashcards = FlashcardData.selectGroupWithRatingSort(widget.group.id);
+    super.activate();
+  }
+
+  void _onAddFlashcard(Qna qna) {
+    setState(
+      () => _flashcards.insert(
+        0,
+        FlashcardData.insert(
+          FlashcardInput(
+            groupId: widget.group.id,
+            question: qna.question,
+            answer: qna.answer,
+          ),
+        ),
+      ),
+    );
+  }
 
   void _addFlashcardButton(BuildContext context) async {
     await showDialog(
       context: context,
-      builder: (_) => FlashcardDialogWidget(
-        onAddFlashcard: (flashcard) =>
-            setState(() => _flashcards.add(flashcard)),
-      ),
+      builder: (_) => FlashcardDialogWidget(onAddFlashcard: _onAddFlashcard),
     );
   }
 
   void _resetFlashcardCounter() {
     setState(() {
-      _currentFlashcard = 0;
+      _flashcardIndex = 0;
+      _flashcards = FlashcardData.selectGroupWithRatingSort(widget.group.id);
     });
   }
 
   void _onRatingSubmit(int rating) {
     setState(() {
-      _ratings[_currentFlashcard] = rating;
-      _currentFlashcard++;
+      FlashcardData.updateRating(_currentFlashcard.id, rating);
+      _flashcardIndex++;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme.colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: Text(widget.group.title),
       ),
       body: Center(
         child: _flashcards.isNotEmpty
-            ? _currentFlashcard < _flashcards.length
+            ? _flashcardIndex < _flashcards.length
                   ? Flashcard(
-                      qna: _flashcards[_currentFlashcard],
+                      qna: Qna(
+                        answer: _currentFlashcard.answer,
+                        question: _currentFlashcard.question,
+                      ),
                       onRatingSubmit: _onRatingSubmit,
                     )
                   : Column(

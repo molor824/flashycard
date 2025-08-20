@@ -1,3 +1,4 @@
+import 'package:flashycard/db_api.dart';
 import 'package:flashycard/flashcard.dart';
 import 'package:flashycard/validator.dart';
 import 'package:flutter/material.dart';
@@ -22,12 +23,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class FlashcardGroup {
-  final String name;
-  final String? description;
-  const FlashcardGroup({required this.name, this.description});
-}
-
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
@@ -38,11 +33,15 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final List<FlashcardGroup> _groups = [];
+  final List<FlashcardGroupData> _groups = FlashcardGroupData.selectAll();
 
-  void _onAddGroup(String name, String? description) {
+  void _onAddGroup(String title, String? description) {
     setState(
-      () => _groups.add(FlashcardGroup(name: name, description: description)),
+      () => _groups.add(
+        FlashcardGroupData.insert(
+          FlashcardGroupInput(title: title, description: description),
+        ),
+      ),
     );
   }
 
@@ -53,9 +52,9 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void _selectGroup(BuildContext context, FlashcardGroup group) {
+  void _selectGroup(BuildContext context, FlashcardGroupData group) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => FlashcardPage(title: group.name)),
+      MaterialPageRoute<void>(builder: (_) => FlashcardPage(group: group)),
     );
   }
 
@@ -86,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class FlashcardGroupCard extends StatelessWidget {
-  final FlashcardGroup group;
+  final FlashcardGroupData group;
   final void Function(BuildContext) onPressed;
   const FlashcardGroupCard({
     super.key,
@@ -110,7 +109,7 @@ class FlashcardGroupCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(group.name, style: theme.textTheme.titleLarge),
+                  Text(group.title, style: theme.textTheme.titleLarge),
                   Text(
                     group.description ?? "",
                     style: theme.textTheme.bodyMedium,

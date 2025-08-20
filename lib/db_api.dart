@@ -74,16 +74,16 @@ class FlashcardData {
     );
   }
 
-  static void insert(FlashcardInput input) {
+  static FlashcardData insert(FlashcardInput input) {
     var currentCounter = _sampleFlashcardData.fold(0, (n, e) => max(n, e.id));
-    _sampleFlashcardData.add(
-      FlashcardData(
-        id: currentCounter + 1,
-        groupId: input.groupId,
-        question: input.question,
-        answer: input.answer,
-      ),
+    var data = FlashcardData(
+      id: currentCounter + 1,
+      groupId: input.groupId,
+      question: input.question,
+      answer: input.answer,
     );
+    _sampleFlashcardData.add(data);
+    return data;
   }
 }
 
@@ -107,14 +107,14 @@ class FlashcardGroupData {
     return _sampleGroupData;
   }
 
-  static void insert(FlashcardGroupInput input) {
+  static FlashcardGroupData insert(FlashcardGroupInput input) {
     var currentCounter = _sampleGroupData.fold(0, (n, e) => max(n, e.id));
-    _sampleGroupData.add(
-      FlashcardGroupData(
-        title: input.title,
-        id: currentCounter + 1,
-        description: input.description,
-      ),
+    var data = FlashcardGroupData(
+      title: input.title,
+      id: currentCounter + 1,
+      description: input.description,
     );
+    _sampleGroupData.add(data);
+    return data;
   }
 }
