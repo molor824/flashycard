@@ -131,9 +131,9 @@ class FlashcardPageState extends State<FlashcardPage> {
   FlashcardData get _currentFlashcard => _flashcards[_flashcardIndex];
 
   @override
-  void activate() {
+  void initState() {
     _flashcards = FlashcardData.selectGroupWithRatingSort(widget.group.id);
-    super.activate();
+    super.initState();
   }
 
   void _onAddFlashcard(Qna qna) {

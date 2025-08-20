@@ -33,7 +33,13 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final List<FlashcardGroupData> _groups = FlashcardGroupData.selectAll();
+  late List<FlashcardGroupData> _groups;
+
+  @override
+  void initState() {
+    _groups = FlashcardGroupData.selectAll();
+    super.initState();
+  }
 
   void _onAddGroup(String title, String? description) {
     setState(
