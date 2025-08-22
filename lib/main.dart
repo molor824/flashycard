@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flashycard/db_api.dart';
 import 'package:flashycard/flashcard.dart';
-import 'package:flashycard/validator.dart';
+import 'package:flashycard/flashcard_group.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -64,6 +64,36 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Future<void> _onEdit(
+    FlashcardGroupData group,
+    String title,
+    String? description,
+  ) async {
+    await FlashcardGroupData.update(
+      group.id,
+      title: title,
+      description: description,
+    );
+
+    setState(() {
+      final index = _groups!.indexOf(group);
+      _groups![index] = FlashcardGroupData(
+        title: title,
+        description: description,
+        id: group.id,
+      );
+    });
+  }
+
+  Future<void> _onDelete(FlashcardGroupData group) async {
+    await FlashcardGroupData.delete(group.id);
+
+    setState(() {
+      final index = _groups!.indexOf(group);
+      _groups!.removeAt(index);
+    });
+  }
+
   void _selectGroup(BuildContext context, FlashcardGroupData group) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => FlashcardPage(group: group)),
@@ -84,7 +114,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   .map(
                     (group) => FlashcardGroupCard(
                       group: group,
-                      onPressed: (context) => _selectGroup(context, group),
+                      onPressed: () => _selectGroup(context, group),
+                      onEdit: (title, description) =>
+                          _onEdit(group, title, description),
+                      onDelete: () => _onDelete(group),
                     ),
                   )
                   .toList()
@@ -94,108 +127,6 @@ class _MyHomePageState extends State<MyHomePage> {
         onPressed: () => _showAddDialog(context),
         child: Icon(Icons.add),
       ),
-    );
-  }
-}
-
-class FlashcardGroupCard extends StatelessWidget {
-  final FlashcardGroupData group;
-  final void Function(BuildContext) onPressed;
-  const FlashcardGroupCard({
-    super.key,
-    required this.group,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => onPressed(context),
-        child: Padding(
-          padding: EdgeInsetsGeometry.all(16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(group.title, style: theme.textTheme.titleLarge),
-                  Text(
-                    group.description ?? "",
-                    style: theme.textTheme.bodyMedium,
-                    textAlign: TextAlign.justify,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class CreateGroupDialog extends StatefulWidget {
-  final FutureOr<void> Function(String, String?)? onGroupAdd;
-  const CreateGroupDialog({super.key, this.onGroupAdd});
-
-  @override
-  State<StatefulWidget> createState() => CreateGroupDialogState();
-}
-
-class CreateGroupDialogState extends State<CreateGroupDialog> {
-  final GlobalKey<FormState> _formKey = GlobalKey();
-  String? _name, _description;
-  bool? _loading;
-
-  Future<void> _addGroup() async {
-    final state = _formKey.currentState!;
-    state.save();
-    if (state.validate()) {
-      setState(() => _loading = true);
-      await widget.onGroupAdd?.call(_name!, _description);
-      setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading == false) {
-      Navigator.of(context).pop();
-    }
-    return AlertDialog(
-      title: const Text("Create new flashcard group"),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            TextFormField(
-              decoration: const InputDecoration(labelText: "Group Name"),
-              validator: emptyFieldValidator("group name"),
-              onSaved: (value) => _name = value,
-            ),
-            TextFormField(
-              decoration: const InputDecoration(labelText: "Description"),
-              onSaved: (value) => _description = value,
-              keyboardType: TextInputType.multiline,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        ElevatedButton(
-          onPressed: _addGroup,
-          child: _loading == null
-              ? const Text("Add")
-              : const CircularProgressIndicator(),
-        ),
-      ],
     );
   }
 }
