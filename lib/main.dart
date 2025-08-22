@@ -40,7 +40,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _loadGroups() async {
     setState(() => _groups = null);
-    var value = await FlashcardGroupData.selectAll();
+    final value = await FlashcardGroupData.selectAll();
     setState(() => _groups = value);
   }
 
@@ -51,7 +51,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _onAddGroup(String title, String? description) async {
-    var data = await FlashcardGroupData.insert(
+    final data = await FlashcardGroupData.insert(
       FlashcardGroupInput(title: title, description: description),
     );
     setState(() => _groups?.add(data));
@@ -72,7 +72,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    var theme = Theme.of(context);
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme.colorScheme.inversePrimary,
@@ -109,7 +109,7 @@ class FlashcardGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var theme = Theme.of(context);
+    final theme = Theme.of(context);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -155,7 +155,7 @@ class CreateGroupDialogState extends State<CreateGroupDialog> {
   bool? _loading;
 
   Future<void> _addGroup() async {
-    var state = _formKey.currentState!;
+    final state = _formKey.currentState!;
     state.save();
     if (state.validate()) {
       setState(() => _loading = true);

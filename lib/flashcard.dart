@@ -84,7 +84,7 @@ class FlashcardDialogState extends State<FlashcardDialogWidget> {
   bool? _loading;
 
   Future<void> _addPressed() async {
-    var state = _formKey.currentState!;
+    final state = _formKey.currentState!;
     state.save();
     if (state.validate()) {
       setState(() => _loading = true);
@@ -151,7 +151,7 @@ class FlashcardPageState extends State<FlashcardPage> {
       _flashcards = null;
       _flashcardIndex = 0;
     });
-    var data = await FlashcardData.selectGroupWithRatingSort(widget.group.id);
+    final data = await FlashcardData.selectGroupWithRatingSort(widget.group.id);
     setState(() => _flashcards = data);
   }
 
@@ -162,7 +162,7 @@ class FlashcardPageState extends State<FlashcardPage> {
   }
 
   Future<void> _onAddFlashcard(Qna qna) async {
-    var data = await FlashcardData.insert(
+    final data = await FlashcardData.insert(
       FlashcardInput(
         groupId: widget.group.id,
         question: qna.question,
@@ -181,14 +181,14 @@ class FlashcardPageState extends State<FlashcardPage> {
 
   Future<void> _onRatingSubmit(int rating) async {
     if (_currentFlashcard != null) {
-      await FlashcardData.updateRating(_currentFlashcard!.id, rating);
+      await FlashcardData.update(_currentFlashcard!.id, rating: rating);
     }
     setState(() => _flashcardIndex++);
   }
 
   @override
   Widget build(BuildContext context) {
-    var theme = Theme.of(context);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(

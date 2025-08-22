@@ -81,8 +81,8 @@ class FlashcardData {
   static Future<List<FlashcardData>> selectGroupWithRatingSort(
     int groupId,
   ) async {
-    var db = await _db;
-    var flashcards = await db.query(
+    final db = await _db;
+    final flashcards = await db.query(
       flashcardTableName,
       where: '$flashcardGroupIdName = $groupId',
       orderBy: '$flashcardRatingName ASC',
@@ -106,28 +106,41 @@ class FlashcardData {
     ];
   }
 
-  static Future<void> updateRating(int id, int rating) async {
-    var db = await _db;
-    await db.update(
-      flashcardTableName,
-      {flashcardRatingName: rating},
-      where: '$rowid = $id',
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+  static Future<void> update(
+    int id, {
+    String? question,
+    String? answer,
+    int? rating,
+  }) async {
+    final db = await _db;
+    await db.update(flashcardTableName, {
+      flashcardRatingName: rating,
+      flashcardAnswerName: answer,
+      flashcardQuestionName: question,
+    }, where: '$rowid = $id');
   }
 
   static Future<FlashcardData> insert(FlashcardInput input) async {
-    var db = await _db;
-    var id = await db.insert(
-      flashcardTableName,
-      input.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    final db = await _db;
+    final id = await db.insert(flashcardTableName, input.toMap());
     return FlashcardData(
       groupId: input.groupId,
       question: input.question,
       answer: input.answer,
       id: id,
+    );
+  }
+
+  static Future<void> delete(int id) async {
+    final db = await _db;
+    await db.delete(flashcardTableName, where: '$rowid = $id');
+  }
+
+  static Future<void> deleteAllInGroup(int groupId) async {
+    final db = await _db;
+    await db.delete(
+      flashcardTableName,
+      where: '$flashcardGroupIdName = $groupId',
     );
   }
 }
@@ -161,9 +174,27 @@ class FlashcardGroupData {
     )''');
   }
 
+  static Future<void> update(
+    int id, {
+    String? title,
+    String? description,
+  }) async {
+    final db = await _db;
+    await db.update(groupTableName, {
+      groupTitleName: title,
+      groupDescriptionName: description,
+    }, where: '$rowid = $id');
+  }
+
+  static Future<void> delete(int id) async {
+    final db = await _db;
+    await FlashcardData.deleteAllInGroup(id);
+    await db.delete(groupTableName, where: '$rowid = $id');
+  }
+
   static Future<List<FlashcardGroupData>> selectAll() async {
-    var db = await _db;
-    var queries = await db.query(groupTableName);
+    final db = await _db;
+    final queries = await db.query(groupTableName);
     return [
       for (final {
             rowid: id as int,
@@ -176,12 +207,8 @@ class FlashcardGroupData {
   }
 
   static Future<FlashcardGroupData> insert(FlashcardGroupInput input) async {
-    var db = await _db;
-    var id = await db.insert(
-      groupTableName,
-      input.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    final db = await _db;
+    final id = await db.insert(groupTableName, input.toMap());
     return FlashcardGroupData(
       title: input.title,
       id: id,
