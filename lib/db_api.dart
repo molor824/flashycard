@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -17,9 +16,6 @@ Future<void> dbSetup() async {
     databaseFactory = databaseFactoryFfi;
   }
 
-  if (kDebugMode) {
-    await deleteDatabase(dbName);
-  }
   _db = openDatabase(
     join(await getDatabasesPath(), dbName),
     onCreate: (db, version) async {
