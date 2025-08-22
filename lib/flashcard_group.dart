@@ -25,16 +25,23 @@ enum _FlashcardState { normal, edit, delete }
 
 class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
   final GlobalKey<FormState> _formKey = GlobalKey();
-  String? _titleInput, _descriptionInput;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
   _FlashcardState _state = _FlashcardState.normal;
   bool _loading = false;
 
-  void _onPressed() {
-    if (_state != _FlashcardState.normal) {
-      setState(() => _state = _FlashcardState.normal);
-    } else {
-      widget.onPressed();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _titleController.text = widget.group.title;
+    _descriptionController.text = widget.group.description ?? "";
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
   }
 
   void _onEditPressed() {
@@ -48,11 +55,10 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
   Future<void> _onSubmitPressed() async {
     final formState = _formKey.currentState!;
 
-    formState.save();
     if (!formState.validate()) return;
 
     setState(() => _loading = true);
-    await widget.onEdit(_titleInput!, _descriptionInput);
+    await widget.onEdit(_titleController.text, _descriptionController.text);
     setState(() {
       _state = _FlashcardState.normal;
       _loading = false;
@@ -76,11 +82,14 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: !_loading ? _onPressed : null,
+        onTap: !_loading && _state == _FlashcardState.normal
+            ? widget.onPressed
+            : null,
         child: Padding(
           padding: EdgeInsetsGeometry.all(16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            spacing: 32,
             children: switch (_state) {
               _FlashcardState.normal => [
                 Column(
@@ -110,24 +119,24 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
                 ),
               ],
               _FlashcardState.edit => [
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        decoration: InputDecoration(labelText: "Title"),
-                        validator: emptyFieldValidator("title"),
-                        initialValue: _titleInput ?? group.title,
-                        onSaved: (v) => _titleInput = v,
-                        readOnly: _loading,
-                      ),
-                      TextFormField(
-                        decoration: InputDecoration(labelText: "Description"),
-                        initialValue: _descriptionInput ?? group.description,
-                        onSaved: (v) => _descriptionInput = v,
-                        readOnly: _loading,
-                      ),
-                    ],
+                Flexible(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _titleController,
+                          decoration: InputDecoration(labelText: "Title"),
+                          validator: emptyFieldValidator("title"),
+                          readOnly: _loading,
+                        ),
+                        TextFormField(
+                          controller: _descriptionController,
+                          decoration: InputDecoration(labelText: "Description"),
+                          readOnly: _loading,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Row(
@@ -144,14 +153,17 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
                 ),
               ],
               _FlashcardState.delete => [
-                Column(
-                  children: [
-                    Text("Are you sure?"),
-                    Text(
-                      "This change is permanent, and will remove every flashcards within the group",
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ],
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Are you sure?", style: theme.textTheme.titleLarge),
+                      Text(
+                        "This change is permanent, and will remove every flashcards within the group",
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
                   children: [
@@ -207,18 +219,18 @@ class CreateGroupDialogState extends State<CreateGroupDialog> {
       content: Form(
         key: _formKey,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextFormField(
-              decoration: const InputDecoration(labelText: "Group Name"),
+              decoration: InputDecoration(labelText: "Group Name"),
               validator: emptyFieldValidator("group name"),
               onSaved: (value) => _name = value,
-              readOnly: _loading == null,
+              readOnly: _loading != null,
             ),
             TextFormField(
-              decoration: const InputDecoration(labelText: "Description"),
+              decoration: InputDecoration(labelText: "Description"),
               onSaved: (value) => _description = value,
-              keyboardType: TextInputType.multiline,
-              readOnly: _loading == null,
+              readOnly: _loading != null,
             ),
           ],
         ),
