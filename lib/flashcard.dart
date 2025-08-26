@@ -32,7 +32,10 @@ class FlashcardState extends State<Flashcard> {
   Future<void> _onRating(int rating) async {
     setState(() => _loading = true);
     await widget.onRatingSubmit?.call(rating);
-    setState(() => _loading = false);
+    setState(() {
+      _loading = false;
+      _reveal = false;
+    });
   }
 
   @override
@@ -188,7 +191,6 @@ class FlashcardPageState extends State<FlashcardPage> {
         groupId: widget.group.id,
         question: qna.question,
         answer: qna.answer,
-        rating: 0,
       ),
     );
     setState(() => _flashcards?.insert(0, data));
@@ -203,7 +205,7 @@ class FlashcardPageState extends State<FlashcardPage> {
 
   Future<void> _onRatingSubmit(int rating) async {
     if (_currentFlashcard != null) {
-      await FlashcardData.update(_currentFlashcard!.id, rating: rating);
+      await FlashcardData.setRating(_currentFlashcard!.id, rating);
     }
     setState(() => _flashcardIndex++);
   }

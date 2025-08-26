@@ -42,19 +42,16 @@ Future<void> dbSetup() async {
 class FlashcardInput {
   final int groupId;
   final String question, answer;
-  final int rating;
   const FlashcardInput({
     required this.groupId,
     required this.question,
     required this.answer,
-    required this.rating,
   });
 
   Map<String, Object?> toMap() => {
     flashcardGroupIdName: groupId,
     flashcardAnswerName: answer,
     flashcardQuestionName: question,
-    flashcardRatingName: rating,
   };
 }
 
@@ -63,18 +60,19 @@ const String flashcardGroupIdName = 'groupId';
 const String flashcardAnswerName = 'answer';
 const String flashcardQuestionName = 'question';
 const String flashcardRatingName = 'rating';
+const String flashcardReviewedAtName = 'reviewedAt';
 
 class FlashcardData {
   final int id;
   final int groupId;
   final String question, answer;
-  final int rating;
+  final int? rating;
   FlashcardData({
     required this.groupId,
     required this.question,
     required this.answer,
     required this.id,
-    required this.rating,
+    this.rating,
   });
 
   static Future<void> createTable(Database db) {
@@ -83,7 +81,8 @@ class FlashcardData {
       $flashcardGroupIdName INTEGER,
       $flashcardAnswerName TEXT,
       $flashcardQuestionName TEXT,
-      $flashcardRatingName INTEGER
+      $flashcardRatingName INTEGER,
+      $flashcardReviewedAtName INTEGER
     )''');
   }
 
@@ -93,7 +92,8 @@ class FlashcardData {
     final flashcards = await _db.query(
       flashcardTableName,
       where: '$flashcardGroupIdName = $groupId',
-      orderBy: '$flashcardRatingName ASC',
+      orderBy:
+          '$flashcardRatingName ASC NULLS FIRST, $flashcardReviewedAtName ASC NULLS LAST',
     );
     return [
       for (final {
@@ -104,11 +104,7 @@ class FlashcardData {
             flashcardRatingName: rating as int?,
           }
           in flashcards)
-        if (id != null &&
-            groupId != null &&
-            question != null &&
-            answer != null &&
-            rating != null)
+        if (id != null && groupId != null && question != null && answer != null)
           FlashcardData(
             id: id,
             groupId: groupId,
@@ -119,16 +115,18 @@ class FlashcardData {
     ];
   }
 
-  static Future<void> update(
-    int id, {
-    String? question,
-    String? answer,
-    int? rating,
-  }) async {
+  static Future<void> update(int id, {String? question, String? answer}) async {
     await _db.update(flashcardTableName, {
-      if (rating != null) flashcardRatingName: rating,
       if (answer != null) flashcardAnswerName: answer,
       if (question != null) flashcardQuestionName: question,
+    }, where: '$rowid = $id');
+  }
+
+  static Future<void> setRating(int id, int rating) async {
+    var time = DateTime.now();
+    await _db.update(flashcardTableName, {
+      flashcardRatingName: rating,
+      flashcardReviewedAtName: time.millisecondsSinceEpoch,
     }, where: '$rowid = $id');
   }
 
@@ -138,7 +136,6 @@ class FlashcardData {
       groupId: input.groupId,
       question: input.question,
       answer: input.answer,
-      rating: input.rating,
       id: id,
     );
   }
