@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 class FlashcardGroupCard extends StatefulWidget {
   final FlashcardGroupData group;
   final void Function() onPressed;
-  final FutureOr<void> Function(String title, String? description) onEdit;
+  final FutureOr<void> Function(String title, String description) onEdit;
   final FutureOr<void> Function() onDelete;
   const FlashcardGroupCard({
     super.key,
@@ -34,7 +34,7 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
   void initState() {
     super.initState();
     _titleController.text = widget.group.title;
-    _descriptionController.text = widget.group.description ?? "";
+    _descriptionController.text = widget.group.description;
   }
 
   @override
@@ -97,7 +97,7 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
                   children: [
                     Text(group.title, style: theme.textTheme.titleLarge),
                     Text(
-                      group.description ?? "",
+                      group.description,
                       style: theme.textTheme.bodyMedium,
                       textAlign: TextAlign.justify,
                       overflow: TextOverflow.ellipsis,
@@ -187,7 +187,7 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
 }
 
 class CreateGroupDialog extends StatefulWidget {
-  final FutureOr<void> Function(String, String?)? onGroupAdd;
+  final FutureOr<void> Function(String, String)? onGroupAdd;
   const CreateGroupDialog({super.key, this.onGroupAdd});
 
   @override
@@ -196,7 +196,8 @@ class CreateGroupDialog extends StatefulWidget {
 
 class CreateGroupDialogState extends State<CreateGroupDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey();
-  String? _name, _description;
+  final TextEditingController _name = TextEditingController(),
+      _description = TextEditingController();
   bool? _loading;
 
   Future<void> _addGroup() async {
@@ -204,7 +205,7 @@ class CreateGroupDialogState extends State<CreateGroupDialog> {
     state.save();
     if (state.validate()) {
       setState(() => _loading = true);
-      await widget.onGroupAdd?.call(_name!, _description);
+      await widget.onGroupAdd?.call(_name.text, _description.text);
       setState(() => _loading = false);
     }
   }
@@ -222,14 +223,14 @@ class CreateGroupDialogState extends State<CreateGroupDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextFormField(
+              controller: _name,
               decoration: InputDecoration(labelText: "Group Name"),
               validator: emptyFieldValidator("group name"),
-              onSaved: (value) => _name = value,
               readOnly: _loading != null,
             ),
             TextFormField(
+              controller: _description,
               decoration: InputDecoration(labelText: "Description"),
-              onSaved: (value) => _description = value,
               readOnly: _loading != null,
             ),
           ],

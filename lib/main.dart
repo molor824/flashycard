@@ -50,7 +50,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
   }
 
-  Future<void> _onAddGroup(String title, String? description) async {
+  Future<void> _onAddGroup(String title, String description) async {
     final data = await FlashcardGroupData.insert(
       FlashcardGroupInput(title: title, description: description),
     );
@@ -67,7 +67,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _onEdit(
     FlashcardGroupData group,
     String title,
-    String? description,
+    String description,
   ) async {
     await FlashcardGroupData.update(
       group.id,

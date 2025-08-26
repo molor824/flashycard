@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flashycard/db_api.dart';
-import 'package:flashycard/rating.dart';
 import 'package:flashycard/validator.dart';
 import 'package:flutter/material.dart';
 
@@ -24,23 +23,16 @@ class Flashcard extends StatefulWidget {
 
 class FlashcardState extends State<Flashcard> {
   bool _reveal = false;
-  int? _rating;
   bool _loading = false;
 
-  void _onRatingChange(int rating) {
-    setState(() => _rating = rating);
+  void _onReveal() {
+    setState(() => _reveal = true);
   }
 
-  Future<void> _onRevealPress() async {
-    if (_reveal) {
-      setState(() => _loading = true);
-      await widget.onRatingSubmit?.call(_rating!);
-      setState(() => _loading = false);
-    }
-    setState(() {
-      _reveal = !_reveal;
-      _rating = null;
-    });
+  Future<void> _onRating(int rating) async {
+    setState(() => _loading = true);
+    await widget.onRatingSubmit?.call(rating);
+    setState(() => _loading = false);
   }
 
   @override
@@ -53,16 +45,44 @@ class FlashcardState extends State<Flashcard> {
           spacing: 10,
           children: [
             Text(widget.qna.question),
-            if (_reveal) Text(widget.qna.answer),
-            if (_reveal)
-              Rating(rating: _rating ?? 0, onRatingChange: _onRatingChange),
-            if (!_reveal || _rating != null)
-              TextButton(
-                onPressed: _onRevealPress,
-                child: !_loading
-                    ? Text(!_reveal ? "Reveal" : "Next")
-                    : const CircularProgressIndicator(),
+            if (_reveal) ...[
+              Text(widget.qna.answer),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 16,
+                children: [
+                  ElevatedButton(
+                    onPressed: !_loading ? () => _onRating(0) : null,
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateColor.resolveWith(
+                        (_) => Colors.redAccent.shade100,
+                      ),
+                    ),
+                    child: Text('Bad'),
+                  ),
+                  ElevatedButton(
+                    onPressed: !_loading ? () => _onRating(1) : null,
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateColor.resolveWith(
+                        (_) => Colors.yellowAccent.shade100,
+                      ),
+                    ),
+                    child: Text('Decent'),
+                  ),
+                  ElevatedButton(
+                    onPressed: !_loading ? () => _onRating(2) : null,
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateColor.resolveWith(
+                        (_) => Colors.greenAccent.shade100,
+                      ),
+                    ),
+                    child: Text('Good'),
+                  ),
+                ],
               ),
+            ],
+            if (!_reveal)
+              TextButton(onPressed: _onReveal, child: Text("Reveal")),
           ],
         ),
       ),
@@ -80,7 +100,8 @@ class FlashcardDialogWidget extends StatefulWidget {
 
 class FlashcardDialogState extends State<FlashcardDialogWidget> {
   final GlobalKey<FormState> _formKey = GlobalKey();
-  String? _answer, _question;
+  final TextEditingController _question = TextEditingController(),
+      _answer = TextEditingController();
   bool? _loading;
 
   Future<void> _addPressed() async {
@@ -89,7 +110,7 @@ class FlashcardDialogState extends State<FlashcardDialogWidget> {
     if (state.validate()) {
       setState(() => _loading = true);
       await widget.onAddFlashcard?.call(
-        Qna(question: _question!, answer: _answer!),
+        Qna(question: _question.text, answer: _answer.text),
       );
       setState(() => _loading = false);
     }
@@ -116,14 +137,14 @@ class FlashcardDialogState extends State<FlashcardDialogWidget> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
+              controller: _question,
               decoration: const InputDecoration(labelText: "Question"),
               validator: emptyFieldValidator("question"),
-              onSaved: (newQuestion) => _question = newQuestion,
             ),
             TextFormField(
+              controller: _answer,
               decoration: const InputDecoration(labelText: "Answer"),
               validator: emptyFieldValidator("answer"),
-              onSaved: (newAnswer) => _answer = newAnswer,
             ),
           ],
         ),
@@ -167,6 +188,7 @@ class FlashcardPageState extends State<FlashcardPage> {
         groupId: widget.group.id,
         question: qna.question,
         answer: qna.answer,
+        rating: 0,
       ),
     );
     setState(() => _flashcards?.insert(0, data));
