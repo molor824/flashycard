@@ -113,7 +113,10 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
                     ),
                     IconButton(
                       onPressed: !_loading ? _onDeletePressed : null,
-                      icon: Icon(Icons.delete, color: Colors.redAccent),
+                      icon: Icon(
+                        Icons.delete,
+                        color: Colors.redAccent.shade200,
+                      ),
                     ),
                   ],
                 ),
@@ -143,11 +146,14 @@ class _FlashcardGroupCardState extends State<FlashcardGroupCard> {
                   children: [
                     IconButton(
                       onPressed: !_loading ? _onCancelPressed : null,
-                      icon: Icon(Icons.close, color: Colors.redAccent),
+                      icon: Icon(Icons.close, color: Colors.redAccent.shade200),
                     ),
                     IconButton(
                       onPressed: !_loading ? _onSubmitPressed : null,
-                      icon: Icon(Icons.done, color: Colors.greenAccent),
+                      icon: Icon(
+                        Icons.done,
+                        color: Colors.greenAccent.shade200,
+                      ),
                     ),
                   ],
                 ),

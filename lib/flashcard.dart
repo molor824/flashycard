@@ -13,7 +13,15 @@ class Qna {
 class Flashcard extends StatefulWidget {
   final Qna qna;
   final FutureOr<void> Function(int)? onRatingSubmit;
-  const Flashcard({super.key, required this.qna, this.onRatingSubmit});
+  final FutureOr<void> Function(String, String)? onEdit;
+  final FutureOr<void> Function()? onDelete;
+  const Flashcard({
+    super.key,
+    required this.qna,
+    this.onRatingSubmit,
+    this.onDelete,
+    this.onEdit,
+  });
 
   @override
   State<StatefulWidget> createState() {
@@ -21,15 +29,34 @@ class Flashcard extends StatefulWidget {
   }
 }
 
+enum _FlashcardStates { normal, editing, deleting }
+
 class FlashcardState extends State<Flashcard> {
   bool _reveal = false;
   bool _loading = false;
+  _FlashcardStates _state = _FlashcardStates.normal;
 
-  void _onReveal() {
+  final TextEditingController _answerController = TextEditingController(),
+      _questionController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey();
+
+  void _setReveal() {
     setState(() => _reveal = true);
   }
 
-  Future<void> _onRating(int rating) async {
+  void _setEditMode() {
+    setState(() {
+      _state = _FlashcardStates.editing;
+      _answerController.text = widget.qna.answer;
+      _questionController.text = widget.qna.question;
+    });
+  }
+
+  void _setDeleteMode() {
+    setState(() => _state = _FlashcardStates.deleting);
+  }
+
+  Future<void> _rating(int rating) async {
     setState(() => _loading = true);
     await widget.onRatingSubmit?.call(rating);
     setState(() {
@@ -38,55 +65,147 @@ class FlashcardState extends State<Flashcard> {
     });
   }
 
+  void _cancel() {
+    setState(() => _state = _FlashcardStates.normal);
+  }
+
+  Future<void> _formSubmit() async {
+    var formState = _formKey.currentState!;
+    if (formState.validate()) {
+      setState(() => _loading = true);
+      await widget.onEdit?.call(
+        _questionController.text,
+        _answerController.text,
+      );
+      setState(() => _loading = false);
+      _cancel();
+    }
+  }
+
+  Future<void> _delete() async {
+    setState(() => _loading = true);
+    await widget.onDelete?.call();
+    setState(() => _loading = false);
+    _cancel();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       child: Padding(
         padding: EdgeInsetsGeometry.all(10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          spacing: 10,
-          children: [
-            Text(widget.qna.question),
-            if (_reveal) ...[
-              Text(widget.qna.answer),
+          spacing: 16,
+          children: switch (_state) {
+            _FlashcardStates.normal => [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.end,
+                spacing: 8,
+                children: [
+                  IconButton(onPressed: _setEditMode, icon: Icon(Icons.edit)),
+                  Text(widget.qna.question, style: theme.textTheme.titleMedium),
+                  IconButton(
+                    onPressed: _setDeleteMode,
+                    icon: Icon(Icons.delete, color: Colors.redAccent.shade200),
+                  ),
+                ],
+              ),
+              if (_reveal) ...[
+                Text(widget.qna.answer),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 16,
+                  children: [
+                    ElevatedButton(
+                      onPressed: !_loading ? () => _rating(0) : null,
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateColor.resolveWith(
+                          (_) => Colors.redAccent.shade100,
+                        ),
+                      ),
+                      child: Text('Bad'),
+                    ),
+                    ElevatedButton(
+                      onPressed: !_loading ? () => _rating(1) : null,
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateColor.resolveWith(
+                          (_) => Colors.yellowAccent.shade100,
+                        ),
+                      ),
+                      child: Text('Decent'),
+                    ),
+                    ElevatedButton(
+                      onPressed: !_loading ? () => _rating(2) : null,
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateColor.resolveWith(
+                          (_) => Colors.greenAccent.shade100,
+                        ),
+                      ),
+                      child: Text('Good'),
+                    ),
+                  ],
+                ),
+              ],
+              if (!_reveal)
+                TextButton(onPressed: _setReveal, child: Text("Reveal")),
+            ],
+            _FlashcardStates.editing => [
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _questionController,
+                      decoration: InputDecoration(labelText: 'Question'),
+                      validator: emptyFieldValidator('question'),
+                      readOnly: _loading,
+                    ),
+                    TextFormField(
+                      controller: _answerController,
+                      decoration: InputDecoration(labelText: 'Answer'),
+                      validator: emptyFieldValidator('answer'),
+                      readOnly: _loading,
+                    ),
+                  ],
+                ),
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 spacing: 16,
                 children: [
-                  ElevatedButton(
-                    onPressed: !_loading ? () => _onRating(0) : null,
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateColor.resolveWith(
-                        (_) => Colors.redAccent.shade100,
-                      ),
-                    ),
-                    child: Text('Bad'),
+                  IconButton(
+                    onPressed: !_loading ? _cancel : null,
+                    icon: Icon(Icons.close, color: Colors.redAccent.shade200),
                   ),
-                  ElevatedButton(
-                    onPressed: !_loading ? () => _onRating(1) : null,
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateColor.resolveWith(
-                        (_) => Colors.yellowAccent.shade100,
-                      ),
-                    ),
-                    child: Text('Decent'),
-                  ),
-                  ElevatedButton(
-                    onPressed: !_loading ? () => _onRating(2) : null,
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateColor.resolveWith(
-                        (_) => Colors.greenAccent.shade100,
-                      ),
-                    ),
-                    child: Text('Good'),
+                  IconButton(
+                    onPressed: !_loading ? _formSubmit : null,
+                    icon: Icon(Icons.done, color: Colors.greenAccent.shade200),
                   ),
                 ],
               ),
             ],
-            if (!_reveal)
-              TextButton(onPressed: _onReveal, child: Text("Reveal")),
-          ],
+            _FlashcardStates.deleting => [
+              Text('Are you sure?'),
+              Text('This action cannot be undone!'),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 16,
+                children: [
+                  IconButton(
+                    onPressed: !_loading ? _cancel : null,
+                    icon: Icon(Icons.close),
+                  ),
+                  IconButton(
+                    onPressed: !_loading ? _delete : null,
+                    icon: Icon(Icons.delete, color: Colors.red.shade200),
+                  ),
+                ],
+              ),
+            ],
+          },
         ),
       ),
     );
@@ -210,6 +329,31 @@ class FlashcardPageState extends State<FlashcardPage> {
     setState(() => _flashcardIndex++);
   }
 
+  Future<void> _onEdit(String question, String answer) async {
+    if (_currentFlashcard == null) return;
+    final flashcard = _currentFlashcard!;
+    await FlashcardData.update(
+      flashcard.id,
+      question: question,
+      answer: answer,
+    );
+    setState(
+      () => _flashcards![_flashcardIndex] = FlashcardData(
+        id: flashcard.id,
+        answer: answer,
+        question: question,
+        rating: flashcard.rating,
+        groupId: flashcard.groupId,
+      ),
+    );
+  }
+
+  Future<void> _onDelete() async {
+    if (_currentFlashcard == null) return;
+    await FlashcardData.delete(_currentFlashcard!.id);
+    setState(() => _flashcards!.removeAt(_flashcardIndex));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -229,6 +373,8 @@ class FlashcardPageState extends State<FlashcardPage> {
                               question: _currentFlashcard!.question,
                             ),
                             onRatingSubmit: _onRatingSubmit,
+                            onEdit: _onEdit,
+                            onDelete: _onDelete,
                           )
                         : Column(
                             mainAxisSize: MainAxisSize.min,
