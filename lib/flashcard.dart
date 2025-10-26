@@ -400,11 +400,16 @@ class FlashcardPageState extends State<FlashcardPage>
                   icon: Icon(Icons.arrow_left),
                   onPressed: _createMoveLeft(),
                 ),
-                Flashcard(
-                  qna: Qna(answer: current.answer, question: current.question),
-                  onRatingSubmit: _onRatingSubmit,
-                  onEdit: _onEdit,
-                  onDelete: _onDelete,
+                Flexible(
+                  child: Flashcard(
+                    qna: Qna(
+                      answer: current.answer,
+                      question: current.question,
+                    ),
+                    onRatingSubmit: _onRatingSubmit,
+                    onEdit: _onEdit,
+                    onDelete: _onDelete,
+                  ),
                 ),
                 IconButton(
                   icon: Icon(Icons.arrow_right),
