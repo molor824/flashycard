@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flashycard/db_api.dart';
 import 'package:flashycard/validator.dart';
@@ -28,6 +29,13 @@ class Flashcard extends StatefulWidget {
     return FlashcardState();
   }
 }
+
+final List<String> ratingTexts = ['Bad', 'Decent', 'Good'];
+final List<Color> ratingColors = [
+  Colors.redAccent.shade100,
+  Colors.yellowAccent.shade100,
+  Colors.greenAccent.shade100,
+];
 
 enum _FlashcardStates { normal, editing, deleting }
 
@@ -66,7 +74,10 @@ class FlashcardState extends State<Flashcard> {
   }
 
   void _cancel() {
-    setState(() => _state = _FlashcardStates.normal);
+    setState(() {
+      _state = _FlashcardStates.normal;
+      _reveal = false;
+    });
   }
 
   Future<void> _formSubmit() async {
@@ -119,33 +130,16 @@ class FlashcardState extends State<Flashcard> {
                   mainAxisSize: MainAxisSize.min,
                   spacing: 16,
                   children: [
-                    ElevatedButton(
-                      onPressed: !_loading ? () => _rating(0) : null,
-                      style: ButtonStyle(
-                        backgroundColor: WidgetStateColor.resolveWith(
-                          (_) => Colors.redAccent.shade100,
+                    for (var i = 0; i < 3; i++)
+                      ElevatedButton(
+                        onPressed: !_loading ? () => _rating(i) : null,
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateColor.resolveWith(
+                            (_) => ratingColors[i],
+                          ),
                         ),
+                        child: Text(ratingTexts[i]),
                       ),
-                      child: Text('Bad'),
-                    ),
-                    ElevatedButton(
-                      onPressed: !_loading ? () => _rating(1) : null,
-                      style: ButtonStyle(
-                        backgroundColor: WidgetStateColor.resolveWith(
-                          (_) => Colors.yellowAccent.shade100,
-                        ),
-                      ),
-                      child: Text('Decent'),
-                    ),
-                    ElevatedButton(
-                      onPressed: !_loading ? () => _rating(2) : null,
-                      style: ButtonStyle(
-                        backgroundColor: WidgetStateColor.resolveWith(
-                          (_) => Colors.greenAccent.shade100,
-                        ),
-                      ),
-                      child: Text('Good'),
-                    ),
                   ],
                 ),
               ],
@@ -283,25 +277,41 @@ class FlashcardPage extends StatefulWidget {
   State<StatefulWidget> createState() => FlashcardPageState();
 }
 
-class FlashcardPageState extends State<FlashcardPage> {
+class FlashcardPageState extends State<FlashcardPage>
+    with SingleTickerProviderStateMixin {
   List<FlashcardData>? _flashcards;
   int _flashcardIndex = 0;
+  late TabController _tabController;
 
-  FlashcardData? get _currentFlashcard => _flashcards?[_flashcardIndex];
+  void _updateFlashcardIndex(int index) {
+    if (index >= 0 && index < _flashcards!.length) {
+      _tabController.index = _flashcards![index].rating ?? 0;
+    }
+    setState(() => _flashcardIndex = index);
+  }
 
   Future<void> _loadFlashcards() async {
     setState(() {
       _flashcards = null;
       _flashcardIndex = 0;
+      _tabController.index = 0;
     });
     final data = await FlashcardData.selectGroupWithRatingSort(widget.group.id);
     setState(() => _flashcards = data);
+    _updateFlashcardIndex(0);
   }
 
   @override
   void initState() {
-    _loadFlashcards();
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _loadFlashcards();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _onAddFlashcard(Qna qna) async {
@@ -323,35 +333,90 @@ class FlashcardPageState extends State<FlashcardPage> {
   }
 
   Future<void> _onRatingSubmit(int rating) async {
-    if (_currentFlashcard != null) {
-      await FlashcardData.setRating(_currentFlashcard!.id, rating);
-    }
-    setState(() => _flashcardIndex++);
+    final current = _flashcards![_flashcardIndex];
+    await FlashcardData.setRating(current.id, rating);
+    _updateFlashcardIndex(_flashcardIndex + 1);
   }
 
   Future<void> _onEdit(String question, String answer) async {
-    if (_currentFlashcard == null) return;
-    final flashcard = _currentFlashcard!;
-    await FlashcardData.update(
-      flashcard.id,
-      question: question,
-      answer: answer,
-    );
+    final current = _flashcards![_flashcardIndex];
+    await FlashcardData.update(current.id, question: question, answer: answer);
     setState(
       () => _flashcards![_flashcardIndex] = FlashcardData(
-        id: flashcard.id,
+        id: current.id,
         answer: answer,
         question: question,
-        rating: flashcard.rating,
-        groupId: flashcard.groupId,
+        rating: current.rating,
+        groupId: current.groupId,
       ),
     );
   }
 
   Future<void> _onDelete() async {
-    if (_currentFlashcard == null) return;
-    await FlashcardData.delete(_currentFlashcard!.id);
+    final current = _flashcards![_flashcardIndex];
+    await FlashcardData.delete(current.id);
     setState(() => _flashcards!.removeAt(_flashcardIndex));
+  }
+
+  void Function()? _createMoveLeft() {
+    if (_flashcardIndex <= 0) return null;
+    return () => _updateFlashcardIndex(_flashcardIndex - 1);
+  }
+
+  void Function()? _createMoveRight() {
+    if (_flashcards == null || _flashcardIndex >= _flashcards!.length - 1) {
+      return null;
+    }
+    return () => _updateFlashcardIndex(_flashcardIndex + 1);
+  }
+
+  void _moveRating(int rating) {
+    if (_flashcards == null) return;
+    for (var i = 0; i < _flashcards!.length; i++) {
+      final flashcard = _flashcards![i];
+      if (rating == (flashcard.rating ?? 0)) {
+        setState(() => _flashcardIndex = i);
+        return;
+      }
+    }
+    _updateFlashcardIndex(_flashcardIndex);
+  }
+
+  Widget buildFlashcard(BuildContext context) {
+    final current = _flashcards![_flashcardIndex];
+    return Column(
+      mainAxisSize: MainAxisSize.max,
+      children: [
+        TabBar.secondary(
+          controller: _tabController,
+          onTap: _moveRating,
+          tabs: [for (var i = 0; i < 3; i++) Tab(text: ratingTexts[i])],
+        ),
+        Expanded(
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_left),
+                  onPressed: _createMoveLeft(),
+                ),
+                Flashcard(
+                  qna: Qna(answer: current.answer, question: current.question),
+                  onRatingSubmit: _onRatingSubmit,
+                  onEdit: _onEdit,
+                  onDelete: _onDelete,
+                ),
+                IconButton(
+                  icon: Icon(Icons.arrow_right),
+                  onPressed: _createMoveRight(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -367,15 +432,7 @@ class FlashcardPageState extends State<FlashcardPage> {
         child: _flashcards != null
             ? _flashcards!.isNotEmpty
                   ? _flashcardIndex < _flashcards!.length
-                        ? Flashcard(
-                            qna: Qna(
-                              answer: _currentFlashcard!.answer,
-                              question: _currentFlashcard!.question,
-                            ),
-                            onRatingSubmit: _onRatingSubmit,
-                            onEdit: _onEdit,
-                            onDelete: _onDelete,
-                          )
+                        ? buildFlashcard(context)
                         : Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [

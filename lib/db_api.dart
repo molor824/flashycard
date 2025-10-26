@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -19,19 +18,9 @@ Future<void> dbSetup() async {
 
   final path = join(await getDatabasesPath(), dbName);
 
-  if (kDebugMode) {
-    await deleteDatabase(path);
-  }
-
   _db = await openDatabase(
     path,
     onCreate: (db, _) async {
-      await FlashcardData.createTable(db);
-      await FlashcardGroupData.createTable(db);
-    },
-    onUpgrade: (db, _, _) async {
-      await db.execute('DROP TABLE $flashcardTableName');
-      await db.execute('DROP TABLE $groupTableName');
       await FlashcardData.createTable(db);
       await FlashcardGroupData.createTable(db);
     },
@@ -88,10 +77,11 @@ class FlashcardData {
 
   static Future<List<FlashcardData>> selectGroupWithRatingSort(
     int groupId,
+    {int? rating}
   ) async {
     final flashcards = await _db.query(
       flashcardTableName,
-      where: '$flashcardGroupIdName = $groupId',
+      where: '$flashcardGroupIdName = $groupId${rating != null ? ', $flashcardRatingName = $rating' : ''}',
       orderBy:
           '$flashcardRatingName ASC NULLS FIRST, $flashcardReviewedAtName ASC NULLS LAST',
     );

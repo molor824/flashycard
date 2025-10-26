@@ -227,6 +227,7 @@ class CreateGroupDialogState extends State<CreateGroupDialog> {
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
               controller: _name,
