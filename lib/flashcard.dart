@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 
 import 'package:flashycard/db_api.dart';
 import 'package:flashycard/validator.dart';
